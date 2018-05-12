@@ -1,0 +1,99 @@
+---
+title: "Machine Learning Course Project"
+author: "Ellie Kim"
+date: '2018-05-12'
+output: html_document
+---
+##Overview
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. In this project, the data will be used from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+
+The goal of this project is to predict the manner in which they did the exercise and predict 20 different test cases using by the model.
+      
+####Part 1. Model Selection
+
+**1.0 Data and Library Load**  
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+library(caret)
+
+train <- read.csv("./Data/pml-training.csv")
+test <- read.csv("./Data/pml-testing.csv")
+#since the train data is so big, need to be split as train and validation sets.
+
+set.seed(255)
+inTrain <- createDataPartition(y=train$classe, p=0.618, list=FALSE)
+trainSet <- train[inTrain, ]
+trainVald <- train[-inTrain, ]
+```
+
+**1.1 Data Preparation for modeling **  
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+#check the nzv - nearly zero variance and remove the variables from the data
+nzv <- nearZeroVar(trainSet)
+#nzv
+trainSet <- trainSet[, -nzv]
+trainVald <- trainVald[, -nzv]
+
+# remove NA data
+trainSet<- trainSet[, colSums(is.na(trainSet)) == 0] 
+trainVald <- trainVald[, colSums(is.na(trainVald)) == 0] 
+
+# remove variables - not intuitive data for prediction (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp), which happen to be the first five variables
+trainSet <- trainSet[, -(1:5)]
+trainVald <- trainVald[, -(1:5)]
+```
+
+**1.2 Modeling - rpart, gbm, rf **  
+
+```{r warning=FALSE, message=FALSE, results='hide', cache=TRUE}
+#Model Building
+#train to use 3-fold Cross Validation
+control <- trainControl(method="cv", number=3, verboseIter=F)
+
+# fit model rpart on trainSet
+fitrpart <- train(classe~., data = trainSet, method = "rpart", trControl=control)
+
+#fit model gbm on trainSet
+fitgbm <- train(classe ~ ., data=trainSet, method="gbm", trControl=control)
+
+#fit model random forest on trainSet
+fitrf <- train(classe ~ ., data=trainSet, method="rf", trControl=control)
+
+```
+
+**1.3 Modeling Comparison- rpart, gbm, rf **  
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+#predict the validation data and check accuracy on model - rpart
+predrpartVald <- predict(fitrpart, newdata=trainVald) 
+confusionMatrix(predrpartVald, trainVald$classe)
+#fitrpart$results
+
+#predict the validation data and check accuracy on model - gbm
+predgbmVald <- predict(fitgbm, newdata=trainVald) 
+confusionMatrix(predgbmVald, trainVald$classe)
+
+#predict the validation data and check accuracy on model - random forest
+predrfVald <- predict(fitrf, newdata=trainVald)
+confusionMatrix(predrfVald, trainVald$classe)
+
+```
+####Conclusion :
+According to the model statistics, the random forest model has the best accuray rate. Choose the random forest model as the best model to predict the test dataset.
+    
+    
+####Part 2. Prediction  
+
+**2.1 Prediction according to the proper modeling - rf **
+
+```{r warning=FALSE, message=FALSE, cache=TRUE}
+#test Data preparation
+test <- test[,-nzv]
+test <- test[, colSums(is.na(test)) == 0] 
+test <- test[,-(1:5)]
+predTest <- predict(fitrf, newdata = test)
+predTest
+```
+
+B A B A A E D B A A B C B A E E A B B B
+
